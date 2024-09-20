@@ -37,7 +37,6 @@ const LoginPage = () => {
   const generateRandomToken = () => {
     return Math.random().toString(36).substr(2, 9); // Tasodifiy token yaratish
   };
-
   const handleFinish = (values: any) => {
     const { name, phone, password } = values;
 
@@ -47,7 +46,6 @@ const LoginPage = () => {
       const newUserId = `${existingUsers.length + 1}`;
       const token = generateRandomToken(); // Tasodifiy token yaratish
       const userData = { id: newUserId, name, phone, password, token }; // Tokenni foydalanuvchi ma'lumotlariga qo'shamiz
-
       existingUsers.push(userData);
       localStorage.setItem("users", JSON.stringify(existingUsers));
 
@@ -63,8 +61,8 @@ const LoginPage = () => {
         (u: any) => u.name === name && u.password === password
       );
       if (user) {
-        // Foydalanuvchi muvaffaqiyatli kirsa, tokenni olish
-        localStorage.setItem("loggedInUser", JSON.stringify(user)); // O'sha foydalanuvchini `loggedInUser` sifatida saqlash
+        // Foydalanuvchi muvaffaqiyatli kirsa, foydalanuvchini `loggedInUser` sifatida saqlash
+        localStorage.setItem("loggedInUser", JSON.stringify(user));
         navigate("/home");
       } else {
         message.error("Malumotni tekshirib Boshqatdan urinib ko'ring.");

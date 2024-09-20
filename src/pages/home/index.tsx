@@ -84,7 +84,6 @@ export const HomePage = () => {
   const loadOrders = async () => {
     return await OrdersApi.getOrders();
   };
-
   useEffect(() => {
     const filtered = productsData?.filter(
       (product: any) => product.categoriesId === selectedCategory
@@ -100,6 +99,7 @@ export const HomePage = () => {
     const loggedInUser = JSON.parse(
       localStorage.getItem("loggedInUser") || "{}"
     );
+
     if (loggedInUser && loggedInUser.name) {
       return loggedInUser.name;
     }

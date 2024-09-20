@@ -17,7 +17,7 @@ function App() {
           }}
         >
           <Routes>
-            <Route index path="/login" element={<LoginPage />} />
+            <Route path="/login" element={<LoginPage />} />
             <Route path="/Home" element={<HomePage />} />
           </Routes>
         </ConfigProvider>
