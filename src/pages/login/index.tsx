@@ -101,6 +101,7 @@ const LoginPage = () => {
         >
           <div className="mt-16">
             <Typography.Title level={2}>
+              {/* 1 */}
               {isRegister ? "Register" : "Login"}
             </Typography.Title>
             <Form
