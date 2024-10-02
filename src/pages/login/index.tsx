@@ -1,4 +1,5 @@
 import { css } from "@emotion/react";
+import { LoginApi, RegisterApi, UserExistApi } from "@src/api";
 import {
   Button,
   Form,
@@ -31,42 +32,55 @@ const inputStyle = css`
 `;
 
 const LoginPage = () => {
-  const [isRegister, setIsRegister] = useState(false);
+  const [isRegister, setIsRegister] = useState(false); // Login va Register o'rtasida almashish uchun state
   const [form] = Form.useForm();
   const navigate = useNavigate();
-  const generateRandomToken = () => {
-    return Math.random().toString(36).substr(2, 9); // Tasodifiy token yaratish
-  };
-  const handleFinish = (values: any) => {
-    const { name, phone, password } = values;
+
+  const handleFinish = async (values: any) => {
+    const { fullname, username, phone, password } = values;
 
     if (isRegister) {
-      const existingUsers = JSON.parse(localStorage.getItem("users") || "[]");
+      try {
+        // Foydalanuvchi mavjudligini tekshirish
+        const userExists = await UserExistApi(username);
+        if (userExists) {
+          message.error(
+            "Bu foydalanuvchi mavjud, iltimos boshqa username tanlang."
+          );
+          return;
+        }
+        const registerData = await RegisterApi(
+          fullname,
+          username,
+          phone,
+          password
+        );
 
-      const newUserId = `${existingUsers.length + 1}`;
-      const token = generateRandomToken(); // Tasodifiy token yaratish
-      const userData = { id: newUserId, name, phone, password, token }; // Tokenni foydalanuvchi ma'lumotlariga qo'shamiz
-      existingUsers.push(userData);
-      localStorage.setItem("users", JSON.stringify(existingUsers));
-
-      // Saqlashdan so'ng, yangi foydalanuvchini `loggedInUser` sifatida saqlash
-      localStorage.setItem("loggedInUser", JSON.stringify(userData));
-
-      message.success("Muvaffaqiyatli ro'yxatdan o'tdingiz!");
-      form.resetFields();
-      navigate("/home");
+        if (registerData) {
+          message.success("Muvaffaqiyatli ro'yxatdan o'tdingiz!");
+          form.resetFields();
+          navigate("/home");
+        }
+      } catch (error) {
+        console.error("Ro'yxatdan o'tishda xatolik:", error);
+        message.error(
+          "Ro'yxatdan o'tishda xatolik. Iltimos, qaytadan urinib ko'ring."
+        );
+      }
     } else {
-      const existingUsers = JSON.parse(localStorage.getItem("users") || "[]");
-      const user = existingUsers.find(
-        (u: any) => u.name === name && u.password === password
-      );
-      if (user) {
-        // Foydalanuvchi muvaffaqiyatli kirsa, foydalanuvchini `loggedInUser` sifatida saqlash
-        localStorage.setItem("loggedInUser", JSON.stringify(user));
-        navigate("/home");
-      } else {
-        message.error("Malumotni tekshirib Boshqatdan urinib ko'ring.");
-        form.resetFields();
+      try {
+        // Tizimga kirish
+        const loginData = await LoginApi(username, password);
+        if (loginData) {
+          localStorage.setItem("loggedInUser", JSON.stringify(loginData));
+          message.success("Muvaffaqiyatli tizimga kirdingiz!");
+          navigate("/home");
+        }
+      } catch (error) {
+        console.error("Login yoki parol xato:", error);
+        message.error(
+          "Login yoki parol xato. Iltimos, qaytadan urinib ko'ring."
+        );
       }
     }
   };
@@ -99,7 +113,6 @@ const LoginPage = () => {
         >
           <div className="mt-16">
             <Typography.Title level={2}>
-              {/* 1 */}
               {isRegister ? "Register" : "Login"}
             </Typography.Title>
             <Form
@@ -107,17 +120,36 @@ const LoginPage = () => {
               onFinish={handleFinish}
               onFinishFailed={handleFinishFailed}
               layout="vertical"
-              initialValues={{ name: "", phone: "", password: "" }}
+              initialValues={{
+                fullname: "",
+                username: "",
+                phone: "",
+                password: "",
+              }}
               style={{ width: "100%" }}
             >
               <Row gutter={16}>
+                {isRegister && (
+                  <Col span={22} offset={1}>
+                    <Form.Item
+                      name="fullname"
+                      rules={[
+                        { required: true, message: "Full name kiriting!" },
+                      ]}
+                      style={{ margin: 0 }}
+                    >
+                      <Input placeholder="Full Name" css={inputStyle} />
+                    </Form.Item>
+                  </Col>
+                )}
+
                 <Col span={22} offset={1}>
                   <Form.Item
-                    name="name"
-                    rules={[{ required: true, message: "Name kiriting!" }]}
+                    name="username"
+                    rules={[{ required: true, message: "Username kiriting!" }]}
                     style={{ margin: 0 }}
                   >
-                    <Input placeholder="Name" css={inputStyle} />
+                    <Input placeholder="Username" css={inputStyle} />
                   </Form.Item>
                 </Col>
 
@@ -130,6 +162,7 @@ const LoginPage = () => {
                     <Input.Password placeholder="Password" css={inputStyle} />
                   </Form.Item>
                 </Col>
+
                 {isRegister && (
                   <Col span={22} offset={1}>
                     <Form.Item
@@ -163,26 +196,23 @@ const LoginPage = () => {
                 </Col>
               </Row>
             </Form>
-            {isRegister ? (
-              <></>
-            ) : (
-              <div className="flex justify-between mt-10 px-5">
-                <Button
-                  type="link"
-                  onClick={() => navigate("/home")}
-                  style={{ padding: 0, color: "#FFAB08" }}
-                >
-                  Keyinroq o'tish ?
-                </Button>
-                <Button
-                  type="link"
-                  onClick={() => setIsRegister(!isRegister)}
-                  style={{ padding: 0, color: "#FFAB08" }}
-                >
-                  {isRegister ? "Login" : "Register"}
-                </Button>
-              </div>
-            )}
+
+            <div className="flex justify-between mt-10 px-5">
+              <Button
+                type="link"
+                onClick={() => navigate("/home")}
+                style={{ padding: 0, color: "#FFAB08" }}
+              >
+                Later
+              </Button>
+              <Button
+                type="link"
+                onClick={() => setIsRegister(!isRegister)}
+                style={{ padding: 0, color: "#FFAB08" }}
+              >
+                {isRegister ? "Login" : "Register"}
+              </Button>
+            </div>
           </div>
         </div>
         <div className="w-full">

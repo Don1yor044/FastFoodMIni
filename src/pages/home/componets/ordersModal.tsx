@@ -1,6 +1,7 @@
 import React from "react";
 import { Modal, Typography, Button, Image } from "antd";
 import { Product } from "@src/types";
+import { priceFormatter2 } from "@src/pages/Additions/PriceFormat";
 
 interface ProductModalProps {
   isModalOpen: boolean;
@@ -48,7 +49,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
               }}
             >
               <Typography.Title level={5}>
-                {selectedProduct.desc || "Описание продукта"}
+                {selectedProduct.description || "Описание продукта"}
               </Typography.Title>
               <Typography.Title level={4} style={{ margin: 0 }}>
                 Состав:
@@ -85,7 +86,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
               </div>
               <div>
                 <Typography.Title level={2}>
-                  {selectedProduct.price}₽
+                  {priceFormatter2(selectedProduct.price)}₽
                 </Typography.Title>
               </div>
             </div>

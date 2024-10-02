@@ -2,12 +2,8 @@ import {
   Button,
   Col,
   Dropdown,
-  Form,
   Image,
-  Input,
   message,
-  Modal,
-  Radio,
   Row,
   Segmented,
   Spin,
@@ -16,19 +12,21 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { CgProfile } from "react-icons/cg";
 import { css } from "@emotion/react";
-import { SmileOutlined } from "@ant-design/icons";
 import styled from "@emotion/styled";
 import Footer from "./componets/footer";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@src/store";
-import { categoriesApi, OrdersApi, productsApi } from "../../api";
+import { categoriesApi, KoriznkaApi, productsApi } from "../../api";
 import { setProducts } from "../../store/slice/productsSlice";
 import { Product } from "@src/types";
-import { setOrders } from "../../store/slice/orderSlice";
 import { setCategories } from "@src/store/slice/categoriesSlice";
 import { useNavigate } from "react-router-dom";
 import ProductModal from "./componets/ordersModal";
 import DeliveryModal from "./componets/dastafkaModal";
+import { setKorzinka } from "@src/store/slice/korzinkaSlice";
+import { Bounce } from "react-awesome-reveal";
+import { priceFormatter2 } from "../Additions/PriceFormat";
+import CategoryProducts from "./componets/products";
 
 export const HomePage = () => {
   const productsData = useSelector(
@@ -37,42 +35,31 @@ export const HomePage = () => {
   const categoriesData = useSelector(
     (store: RootState) => store.categories.categories
   );
+  const korzinkaData = useSelector(
+    (store: RootState) => store.korzinka.korzinka
+  );
+  // console.log(korzinkaData, "00");
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [filteredProducts, setFilteredProducts] = useState(productsData);
-  const [selectedCategory, setSelectedCategory] = useState<any>(1);
+  const [selectedCategory, setSelectedCategory] = useState<any>("Burgers");
   const [isModalOpen1, setIsModalOpen1] = useState(false);
   const [RadioType, setRadio] = useState("Доставка");
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
-  const [basket, setBasket] = useState<any>([]);
 
   const navigate = useNavigate();
 
   const dispatch = useDispatch();
+  const getUserId = () => {
+    if (loggedInUser && loggedInUser.userId) {
+      return loggedInUser.userId;
+    }
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const products = await loadProducts();
-        const categories = await loadCategories();
-        const orders = await loadOrders();
-
-        dispatch(setProducts(products));
-        dispatch(setCategories(categories));
-        dispatch(setOrders(orders));
-      } catch (error) {
-        console.error(error);
-        message.error("Ma'lumotlarni yuklashda xatolik yuz berdi.");
-      } finally {
-        setLoading(false); // Har doim loadingni to'xtating
-      }
-    };
-
-    loadData();
-  }, [dispatch]);
-
+    return "Foydalanuvchi";
+  };
+  const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser") || "{}");
   const loadProducts = async () => {
     return await productsApi();
   };
@@ -81,12 +68,37 @@ export const HomePage = () => {
     return await categoriesApi();
   };
 
-  const loadOrders = async () => {
-    return await OrdersApi.getOrders();
+  const loadKorzinka = async (userId: string) => {
+    const korzinka = await KoriznkaApi.getKorzinka(userId);
+    // console.log(korzinka, "Korzinka API natijasi");
+    return korzinka;
   };
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const products = await loadProducts();
+        const categories = await loadCategories();
+        const korzinka = await loadKorzinka(loggedInUser?.userId || "");
+
+        dispatch(setProducts(products));
+        dispatch(setCategories(categories));
+        dispatch(setKorzinka(korzinka));
+      } catch (error) {
+        console.error(error);
+        message.error("Ma'lumotlarni yuklashda xatolik yuz berdi.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [dispatch, loggedInUser.userId]);
+
   useEffect(() => {
     const filtered = productsData?.filter(
-      (product: any) => product.categoriesId === selectedCategory
+      (product: any) => product.category === selectedCategory
     );
     setFilteredProducts(filtered);
   }, [selectedCategory, productsData]);
@@ -95,27 +107,14 @@ export const HomePage = () => {
     setSelectedCategory(value);
   };
 
-  const getUserName = () => {
-    const loggedInUser = JSON.parse(
-      localStorage.getItem("loggedInUser") || "{}"
-    );
-
-    if (loggedInUser && loggedInUser.name) {
-      return loggedInUser.name;
-    }
-
-    return "Foydalanuvchi";
-  };
-
   const handleLogout = () => {
     localStorage.removeItem("loggedInUser");
     navigate("/login");
   };
-  const userName = getUserName();
   const items = useMemo(
     () => [
       {
-        label: `Акаунт: ${getUserName()}`,
+        label: `Акаунт: ${getUserId()}`,
         key: "0",
       },
       {
@@ -128,7 +127,7 @@ export const HomePage = () => {
         onClick: handleLogout,
       },
     ],
-    [userName, navigate]
+    [getUserId(), navigate]
   );
   const showModal = (product: Product) => {
     setIsModalOpen(true);
@@ -149,26 +148,7 @@ export const HomePage = () => {
     setIsModalOpen1(false);
   };
   const handleSave1 = async (values: any) => {
-    const orderData = {
-      deliveryType: RadioType, // yetkazib berish turi
-      address: RadioType === "Доставка" ? values.address : undefined, // manzil, agar yetkazib berish bo'lsa
-      floor: RadioType === "Доставка" ? values.floor : undefined, // qavat, agar yetkazib berish bo'lsa
-      intercom: RadioType === "Доставка" ? values.intercom : undefined, // domofon, agar yetkazib berish bo'lsa
-      products: basket, // savatdagi mahsulotlar
-      total: calculateTotal(), // jami summa
-    };
-
-    try {
-      await OrdersApi.createOrder(orderData);
-      //@ts-ignore
-      dispatch(setOrders(orderData)); // Orderlarni yangilash
-      setBasket([]); // Savatni tozalash
-      setQuantity(1); // Miqdorni qaytarish
-      handleCancel1(); // Modalni yopish
-      message.success("Buyurtma muvaffaqiyatli qabul qilindi!");
-    } catch (error) {
-      console.error("Error submitting order:", error);
-    }
+    console.log(values);
   };
 
   const handleDeliveryChange = (e: any) => {
@@ -182,54 +162,228 @@ export const HomePage = () => {
   const handleDecrement = () => {
     setQuantity((prevQuantity) => (prevQuantity > 1 ? prevQuantity - 1 : 1));
   };
-
-  const addToCart = () => {
-    const userToken = localStorage.getItem("loggedInUser");
-    const loggedInUser = userToken ? JSON.parse(userToken) : null;
-
+  const addToCart = async () => {
     if (!loggedInUser) {
-      message.warning("logindan oting !");
-      navigate("/login"); // Foydalanuvchi logindan o'tmagan bo'lsa, login sahifasiga o'tamiz
-      return; // Qolgan kodni bajarishni to'xtatamiz
+      message.warning("Logindan oting!");
+      navigate("/login");
+      return;
     }
-    const existingItem = basket.find(
-      (item: Product) => item.id === selectedProduct?.id
+
+    console.log(korzinkaData, "111");
+
+    const existingCart = korzinkaData?.find(
+      (item: any) => item.userId == loggedInUser?.userId
     );
-    if (existingItem) {
-      //@ts-ignore
-      BasketIncrement(selectedProduct?.id, existingItem.quantity + quantity);
+
+    // Yangi mahsulot ob'ekti
+    const newProduct = {
+      product: {
+        id: selectedProduct?.id,
+        image: selectedProduct?.image,
+        title: selectedProduct?.title,
+        price: selectedProduct?.price,
+        weight: selectedProduct?.weight,
+        calories: selectedProduct?.calories,
+        description: selectedProduct?.description,
+        compound: selectedProduct?.compound || [],
+        category: selectedProduct?.category,
+      },
+      quantity,
+      price: selectedProduct.price * quantity,
+    };
+
+    if (existingCart) {
+      // Mahsulot mavjudligini tekshirish
+      const existingProduct = existingCart.items.find(
+        (product: any) => product.product.id === selectedProduct?.id
+      );
+
+      if (existingProduct) {
+        // Mahsulot mavjud bo'lsa, miqdorini oshirish
+        existingProduct.quantity += quantity; // Miqdorni oshirish
+        existingProduct.price =
+          existingProduct.product.price * existingProduct.quantity; // Yangilangan narx
+
+        const updatedItems = existingCart.items.map((product: any) =>
+          product.product.id === existingProduct.product.id
+            ? existingProduct
+            : product
+        );
+
+        const updatedCart = {
+          id: existingCart.id,
+          userId: loggedInUser.userId,
+          items: updatedItems,
+          count: updatedItems.length,
+          total: updatedItems.reduce(
+            (acc: number, curr: any) => acc + curr.price,
+            0
+          ),
+        };
+
+        try {
+          const response = await KoriznkaApi.updateKorzinka(
+            existingCart.id,
+            updatedCart
+          );
+          dispatch(
+            setKorzinka(
+              korzinkaData.map((item: any) =>
+                item.id === existingCart.id
+                  ? { ...item, items: response.items }
+                  : item
+              )
+            )
+          );
+          message.success("Mahsulot savatga qo'shildi!");
+        } catch (error) {
+          message.error("Savatga qo'shishda xatolik yuz berdi.");
+        }
+      } else {
+        // Yangi mahsulotni mavjud savatga qo'shish
+        const updatedCart = {
+          ...existingCart,
+          items: [...existingCart.items, newProduct],
+          count: existingCart.items.length + 1,
+          total: existingCart.total + newProduct.price,
+        };
+
+        try {
+          const response = await KoriznkaApi.updateKorzinka(
+            existingCart.id,
+            updatedCart
+          );
+          dispatch(
+            setKorzinka(
+              korzinkaData.map((item: any) =>
+                item.id === existingCart.id
+                  ? { ...item, items: response.items }
+                  : item
+              )
+            )
+          );
+          message.success("Mahsulot savatga qo'shildi!");
+        } catch (error) {
+          message.error("Savatga qo'shishda xatolik yuz berdi.");
+        }
+      }
     } else {
-      setBasket([
-        ...basket,
-        {
-          ...selectedProduct,
-          quantity,
-        },
-      ]);
+      // Yangi savat yaratish
+      const newCart = {
+        userId: loggedInUser.userId,
+        items: [newProduct],
+        count: 1,
+        total: newProduct.price,
+        id: korzinkaData.length + 1,
+      };
+
+      try {
+        const response = await KoriznkaApi.createKorzinka(newCart);
+        dispatch(setKorzinka([...korzinkaData, response]));
+        message.success("Mahsulot savatga qo'shildi!");
+      } catch (error) {
+        message.error("Savatga qo'shishda xatolik yuz berdi.");
+      }
     }
-    setQuantity(1);
+
+    setQuantity(1); // Miqdorni 1 ga qaytarish
     handleCancel();
   };
-  const BasketIncrement = (productId: string, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      setBasket((prevBasket: any) =>
-        prevBasket.filter((item: any) => item.id !== productId)
+
+  const deleteKorzinka = async (userId: string, productId: string) => {
+    try {
+      const existingCart = korzinkaData.find(
+        (item: any) => item.userId === userId
       );
-    } else {
-      setBasket((prevBasket: any) =>
-        prevBasket.map((item: any) =>
-          item.id === productId ? { ...item, quantity: newQuantity } : item
-        )
-      );
+
+      if (existingCart) {
+        //@ts-ignore
+        const updatedProducts = existingCart.product.filter(
+          (product: any) => product.id !== productId
+        );
+
+        // API orqali mahsulotni o'chirish
+        //@ts-ignore
+        await KoriznkaApi.updateKorzinka(existingCart.id, {
+          //@ts-ignore
+          userId: existingCart.userId,
+          product: updatedProducts,
+        });
+
+        // Redux state dan mahsulotni olib tashlash
+        dispatch(
+          setKorzinka(
+            korzinkaData.map((item: any) =>
+              //@ts-ignore
+              item.id === existingCart.id
+                ? { ...item, product: updatedProducts }
+                : item
+            )
+          )
+        );
+      }
+    } catch (error) {
+      console.error("Mahsulotni o'chirishda xatolik:", error);
     }
   };
 
-  const calculateTotal = () => {
-    return basket.reduce(
-      (total: number, item: Product) => total + item.price * item.quantity,
-      0
+  const BasketIncrement = async (
+    userId: string,
+    productId: string,
+    newQuantity: number
+  ) => {
+    const existingCart = korzinkaData.find(
+      (item: any) => item.userId === userId
     );
+
+    if (existingCart) {
+      //@ts-ignore
+      const existingProduct = existingCart.product.find(
+        (product: any) => product.id === productId
+      );
+
+      if (newQuantity < 1) {
+        await deleteKorzinka(userId, productId); // Mahsulotni o'chirish
+      } else if (existingProduct) {
+        try {
+          // Mahsulotni yangilash
+          const updatedItem = await KoriznkaApi.updateKorzinka(
+            //@ts-ignore
+            existingCart.id,
+            {
+              //@ts-ignore
+              userId: existingCart.userId,
+              //@ts-ignore
+              product: existingCart.product.map((product: any) =>
+                product.id === productId
+                  ? { ...product, quantity: newQuantity }
+                  : product
+              ),
+            }
+          );
+
+          dispatch(
+            setKorzinka(
+              korzinkaData.map((item: any) =>
+                //@ts-ignore
+                item.id === existingCart.id
+                  ? { ...item, product: updatedItem.product }
+                  : item
+              )
+            )
+          );
+        } catch (error) {
+          console.error("Mahsulotni yangilashda xatolik:", error);
+        }
+      }
+    }
   };
+
+  // const filterKorzinka = korzinkaData?.find(
+  //   (item: any) => item.userId === loggedInUser.userId
+  // );
+  // console.log(filterKorzinka, "Filterlangan Korzinka Ma'lumotlari");
+  // console.log(korzinkaData, "doniyor11");
 
   return (
     <>
@@ -256,29 +410,33 @@ export const HomePage = () => {
           <div className="my-10">
             <Row gutter={0}>
               <Col xs={24} sm={12} md={12} lg={12} xl={12}>
-                <img
-                  src="/pic.png"
-                  alt=""
-                  style={{ minHeight: "50px", maxHeight: "400px" }}
-                />
+                <Bounce triggerOnce>
+                  <img
+                    src="/pic.png"
+                    alt=""
+                    style={{ minHeight: "50px", maxHeight: "400px" }}
+                  />
+                </Bounce>
               </Col>
               <Col xs={24} sm={12} md={12} lg={12} xl={12}>
-                <div className="pt-14 ms-5 w-full">
-                  <Typography.Title
-                    level={1}
-                    css={css`
-                      font-family: sans-serif, "Nonito";
-                      font-weight: 700 !important;
-                      color: white !important;
-                    `}
-                  >
-                    Только самые <br />
-                    <span className="text-secondary">сочные бургеры!</span>
-                  </Typography.Title>
-                  <Typography className="text-white mt-10">
-                    Бесплатная доставка от 599₽
-                  </Typography>
-                </div>
+                <Bounce delay={200} triggerOnce>
+                  <div className="pt-14 ms-5 w-full">
+                    <Typography.Title
+                      level={1}
+                      css={css`
+                        font-family: sans-serif, "Nonito";
+                        font-weight: 700 !important;
+                        color: white !important;
+                      `}
+                    >
+                      Только самые <br />
+                      <span className="text-secondary">сочные бургеры!</span>
+                    </Typography.Title>
+                    <Typography className="text-white mt-10">
+                      Бесплатная доставка от 599₽
+                    </Typography>
+                  </div>
+                </Bounce>
               </Col>
             </Row>
           </div>
@@ -289,16 +447,21 @@ export const HomePage = () => {
               <Segmented
                 options={categoriesData.map((category: any) => ({
                   label: (
-                    <span>
-                      <SmileOutlined /> {category.title}
-                    </span>
+                    <div className="flex px-4 gap-2 !items-center">
+                      <img
+                        src={category.icon}
+                        alt=""
+                        className="object-cover w-7 h-7"
+                      />
+                      <div>{category.title}</div>
+                    </div>
                   ),
-                  value: category.id,
+                  value: category.title,
                   className:
                     "block min-w-[120px] bg-white hover:!bg-white !rounded-2xl",
                 }))}
                 style={{
-                  padding: "0px 70px",
+                  padding: "0px 80px",
                   marginTop: 20,
                 }}
                 onChange={handleChange}
@@ -328,24 +491,19 @@ export const HomePage = () => {
                   </div>
                   <div>
                     <Button type="text" className="bg-[#F2F2F3]">
-                      {basket.length}
+                      {0}
                     </Button>
                   </div>
                 </div>
                 {/* adsdad  */}
-                {basket.length === 0 ? (
-                  <Typography.Title level={5}>
-                    Тут пока пусто :({" "}
-                  </Typography.Title>
-                ) : (
-                  basket.map((item: Product) => (
-                    <>
-                      <hr />
-                      <div className="flex gap-2 mt-5" key={item.id}>
+                {korzinkaData.userId === loggedInUser.userId ? (
+                  korzinkaData.items?.length > 0 ? (
+                    korzinkaData.items.map((product: any) => (
+                      <div className="flex gap-2" key={product.product.id}>
                         <div className="w-22">
                           <Image
-                            src={item.image}
-                            alt=""
+                            src={product.product.image}
+                            alt={product.product.title}
                             style={{
                               width: "80px",
                               height: "70px",
@@ -357,13 +515,13 @@ export const HomePage = () => {
                         <div className="flex justify-between w-56">
                           <div>
                             <Typography style={{ margin: 0, fontWeight: 500 }}>
-                              {item.title}
+                              {product.product.title}
                             </Typography>
                             <Typography style={{ color: "#B1B1B1" }}>
-                              {item.weight} Г
+                              {product.product.weight} Г
                             </Typography>
                             <Typography className="font-bold mt-1">
-                              {item.price}₽
+                              {priceFormatter2(product.price)}₽
                             </Typography>
                           </div>
 
@@ -371,17 +529,24 @@ export const HomePage = () => {
                             <Button
                               type="text"
                               onClick={() =>
-                                BasketIncrement(item.id, item.quantity - 1)
+                                BasketIncrement(
+                                  korzinkaData.userId,
+                                  product.product.id,
+                                  product.quantity - 1
+                                )
                               }
                             >
                               -
                             </Button>
-                            <Typography>{item.quantity}</Typography>
+                            <Typography>{product.quantity}</Typography>
                             <Button
                               type="text"
-                              onClick={
-                                () =>
-                                  BasketIncrement(item.id, item.quantity + 1) // Increment quantity
+                              onClick={() =>
+                                BasketIncrement(
+                                  korzinkaData.userId,
+                                  product.product.id,
+                                  product.quantity + 1
+                                )
                               }
                             >
                               +
@@ -389,15 +554,38 @@ export const HomePage = () => {
                           </div>
                         </div>
                       </div>
-                    </>
-                  ))
+                    ))
+                  ) : (
+                    <Typography>Товаров нет</Typography> // Товарлар yo'q, agar items bo'lmasa
+                  )
+                ) : (
+                  <Typography>Товаров нет</Typography> // Agar userId teng bo'lmasa, shunda ham "Товаров нет" chiqariladi
                 )}
-                {basket.length > 0 && (
+
+                {korzinkaData?.length > 0 && (
                   <>
                     <hr className="my-3" />
                     <div className="flex justify-between px-2 items-start font-bold">
                       <Typography>Итого</Typography>
-                      <Typography>{calculateTotal()}₽</Typography>
+                      <Typography>
+                        {priceFormatter2(
+                          korzinkaData
+                            ?.filter(
+                              (item: any) => item.userId === loggedInUser.userId
+                            )
+                            .reduce(
+                              (acc: number, currentItem: any) =>
+                                acc +
+                                currentItem.items.reduce(
+                                  (total: number, product: any) =>
+                                    total + product.price * product.quantity,
+                                  0
+                                ),
+                              0
+                            )
+                        )}
+                        ₽
+                      </Typography>
                     </div>
                     <div className="px-1">
                       <Button
@@ -422,95 +610,14 @@ export const HomePage = () => {
             </Col>
 
             {/* Buyurmatlar  */}
-            <Col lg={18}>
-              <Typography.Title level={2}>
-                {
-                  categoriesData.find(
-                    (item: any) => item.id === selectedCategory
-                    //@ts-ignore
-                  )?.title
-                }
-              </Typography.Title>
-
-              {loading ? (
-                <Spin size="large" />
-              ) : (
-                <Row gutter={[20, 20]}>
-                  {filteredProducts && filteredProducts.length > 0 ? (
-                    filteredProducts.map((item: any) => (
-                      <Col xs={12} sm={12} md={8} lg={8} key={item.id}>
-                        <div
-                          className="bg-white p-1 lg:p-3 rounded-2xl"
-                          style={{
-                            maxHeight: "420px",
-                            minHeight: "120px",
-                          }}
-                        >
-                          <div
-                            style={{
-                              flex: "1",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <img
-                              src={item.image}
-                              alt={item.title}
-                              className="w-full h-auto rounded-2xl"
-                              style={{
-                                minHeight: "120px",
-                                objectFit: "cover",
-                                width: "100%",
-                                height: "220px",
-                              }}
-                            />
-                          </div>
-
-                          <Typography.Title
-                            level={3}
-                            style={{
-                              margin: "0px",
-                              marginTop: "5px",
-                            }}
-                            className="mt-10"
-                          >
-                            {item.price}₽
-                          </Typography.Title>
-                          <Typography.Title
-                            level={5}
-                            style={{
-                              margin: "0px",
-                            }}
-                          >
-                            {item.title}
-                          </Typography.Title>
-                          <Typography.Title
-                            level={5}
-                            style={{ color: "#B1B1B1" }}
-                          >
-                            {item.weight}Г
-                          </Typography.Title>
-                          <Button
-                            onClick={() => showModal(item)}
-                            type="text"
-                            className="bg-[#F2F2F3] w-full rounded-lg py-4"
-                          >
-                            Добавить
-                          </Button>
-                        </div>
-                      </Col>
-                    ))
-                  ) : (
-                    <Col span={24} className="text-center">
-                      <Typography.Title level={4}>
-                        Afsuski ma'lumot yoq !
-                      </Typography.Title>
-                    </Col>
-                  )}
-                </Row>
-              )}
-            </Col>
+            <CategoryProducts
+              filteredProducts={filteredProducts}
+              categoriesData={categoriesData}
+              selectedCategory={selectedCategory}
+              loading={loading}
+              showModal={showModal}
+              priceFormatter2={priceFormatter2}
+            />
           </Row>
         </div>
       </div>

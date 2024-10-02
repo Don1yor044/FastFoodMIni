@@ -4,9 +4,9 @@ export interface Product {
   title: string;
   price: number;
   weight: number;
-  desc: string;
+  description: string;
   compound: string[];
-  calories: number;
-  categories: string;
+  calories: string;
+  category: string;
   quantity: number;
 }
