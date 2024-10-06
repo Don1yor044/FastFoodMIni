@@ -1,5 +1,6 @@
 import { Col, Row, Typography } from "antd";
-import { FaPhone, FaTelegramPlane, FaVk } from "react-icons/fa";
+import { FaLinkedinIn, FaTelegramPlane } from "react-icons/fa";
+import { FaPhone } from "react-icons/fa6";
 
 const Footer = () => {
   return (
@@ -19,7 +20,12 @@ const Footer = () => {
           >
             <Typography.Title level={4}>Номер для заказа</Typography.Title>
             <Typography.Title level={5} className="flex items-center gap-2">
-              <FaPhone /> +7(930)833-38-11
+              <a
+                href="tel:+998972774944"
+                className="flex items-center gap-2 !text-black"
+              >
+                <FaPhone /> +998 (97) 277 49-44
+              </a>
             </Typography.Title>
           </Col>
           <Col
@@ -33,12 +39,12 @@ const Footer = () => {
             <Typography.Title level={4}>Мы в соцсетях</Typography.Title>
             <Typography.Title level={5} className="flex items-center gap-4">
               <div className="bg-[#FF7020] p-2 rounded-full">
-                <a href="#">
-                  <FaVk className="text-white" size={20} />
+                <a href="https://www.linkedin.com/in/doniyor-mamaraimov-3123a832a/">
+                  <FaLinkedinIn className="text-white" size={20} />
                 </a>
               </div>
               <div className="bg-[#FF7020] p-2 rounded-full">
-                <a href="#">
+                <a href="https://t.me/doniyor_044">
                   <FaTelegramPlane className="text-white" size={20} />
                 </a>
               </div>
